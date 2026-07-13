@@ -1,0 +1,104 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-serif: var(--font-cinzel);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-kingdom-red: var(--kingdom-red);
+  --color-kingdom-blue: var(--kingdom-blue);
+  --color-kingdom-green: var(--kingdom-green);
+  --color-kingdom-yellow: var(--kingdom-yellow);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.25);
+}
+
+:root {
+  color-scheme: dark;
+  --background: oklch(0.11 0.012 264);
+  --foreground: oklch(0.93 0.014 88);
+  --card: oklch(0.16 0.015 264);
+  --card-foreground: oklch(0.93 0.014 88);
+  --popover: oklch(0.16 0.015 264);
+  --popover-foreground: oklch(0.93 0.014 88);
+  --primary: oklch(0.93 0.014 88);
+  --primary-foreground: oklch(0.11 0.012 264);
+  --secondary: oklch(0.21 0.018 264);
+  --secondary-foreground: oklch(0.93 0.014 88);
+  --muted: oklch(0.2 0.016 264);
+  --muted-foreground: oklch(0.66 0.018 88);
+  --accent: oklch(0.25 0.02 264);
+  --accent-foreground: oklch(0.93 0.014 88);
+  --destructive: oklch(0.64 0.23 25);
+  --border: oklch(0.38 0.025 264 / 65%);
+  --input: oklch(0.28 0.02 264);
+  --ring: oklch(0.93 0.014 88);
+  --kingdom-red: oklch(0.66 0.23 25);
+  --kingdom-blue: oklch(0.7 0.16 245);
+  --kingdom-green: oklch(0.72 0.18 145);
+  --kingdom-yellow: oklch(0.84 0.17 90);
+  --radius: 0.25rem;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.11 0.012 264);
+  --foreground: oklch(0.93 0.014 88);
+  --card: oklch(0.16 0.015 264);
+  --card-foreground: oklch(0.93 0.014 88);
+  --popover: oklch(0.16 0.015 264);
+  --popover-foreground: oklch(0.93 0.014 88);
+  --primary: oklch(0.93 0.014 88);
+  --primary-foreground: oklch(0.11 0.012 264);
+  --secondary: oklch(0.21 0.018 264);
+  --secondary-foreground: oklch(0.93 0.014 88);
+  --muted: oklch(0.2 0.016 264);
+  --muted-foreground: oklch(0.66 0.018 88);
+  --accent: oklch(0.25 0.02 264);
+  --accent-foreground: oklch(0.93 0.014 88);
+  --border: oklch(0.38 0.025 264 / 65%);
+  --input: oklch(0.28 0.02 264);
+  --ring: oklch(0.93 0.014 88);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body {
+    @apply overflow-hidden bg-background text-foreground;
+  }
+  button {
+    touch-action: manipulation;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 767px) {
+  .portrait-warning {
+    display: flex;
+  }
+}
