@@ -2,28 +2,9 @@
  * ============================================================
  * KINGDOMS OF CHAOS — Turn Manager (Phase State Machine)
  * ============================================================
- *
- * Phase flow (Pass & Play):
- *
- *   HANDOFF ──confirm──▶ PLANNING (player i buffers 3 actions)
- *      ▲                     │ commitTurn()
- *      │      more players?  ▼
- *      └──────yes──── nextPlanner()
- *                            │ no (all 4 committed)
- *                            ▼
- *                       RESOLUTION (simultaneous execution)
- *                            │ acknowledgeResolution()
- *                            ▼
- *                  new round → HANDOFF (or GAME_OVER)
- *
- * KEY DESIGN DECISIONS:
- * - Pure functions: every transition takes a GameState and returns
- *   a NEW GameState. Wire this to Zustand/Redux/your engine's store.
- * - Resources (gold, cards) are DEDUCTED AT PLANNING TIME, not at
- *   resolution. This prevents a player from buffering 3 actions
- *   they can't afford, and keeps the secret buffer honest.
- *   Un-committing an action refunds the cost.
- * - The buffer is validated per-action AND capped at 3.
+ * [NEW] Added UPGRADE action validation, cost deduction, and refund.
+ * UPGRADE effect is immediate (castleLevel++ at buffer time) since it
+ * only affects future income, not the current resolution band.
  */
 
 import { CARDS, CONFIG } from './config'
@@ -66,6 +47,11 @@ export function validateAction(state: GameState, action: GameAction): string | n
       if (action.cardId === 'fireball' && action.targetPlayerId === undefined) return 'Fireball needs a target player.'
       return null
     }
+    // [NEW] UPGRADE validation
+    case 'UPGRADE': {
+      if (player.gold < CONFIG.UPGRADE_COST) return 'Not enough gold to upgrade castle.'
+      return null
+    }
     case 'PASS':
       return null
   }
@@ -95,6 +81,11 @@ export function bufferAction(state: GameState, action: GameAction): GameState {
       player.gold -= CARDS[action.cardId].goldCost
       player.hand.splice(player.hand.indexOf(action.cardId), 1) // card leaves hand now (it's committed)
       break
+    // [NEW] UPGRADE: deduct gold and immediately increase castle level
+    case 'UPGRADE':
+      player.gold -= CONFIG.UPGRADE_COST
+      player.castleLevel += 1
+      break
   }
 
   next.buffers[action.player].push(action)
@@ -118,6 +109,11 @@ export function unbufferLastAction(state: GameState, playerId: PlayerId): GameSt
     case 'PLAY_CARD':
       player.gold += CARDS[action.cardId].goldCost
       player.hand.push(action.cardId)
+      break
+    // [NEW] Refund upgrade cost and revert castle level
+    case 'UPGRADE':
+      player.gold += CONFIG.UPGRADE_COST
+      player.castleLevel -= 1
       break
   }
   return next
