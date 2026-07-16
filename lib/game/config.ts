@@ -2,8 +2,8 @@
  * ============================================================
  * KINGDOMS OF CHAOS — Tunable Game Constants
  * ============================================================
- * All balance numbers live here so designers can tweak without
- * touching logic.
+ * [CHANGED] BOARD_SIZE unified to 36 (6x6) to match design doc.
+ * [NEW] Added troop system and castle upgrade economy.
  */
 
 import type { CardDef, CardId } from './types'
@@ -14,22 +14,34 @@ export const CONFIG = {
 
   STARTING_HP: 20,
   STARTING_GOLD: 10,
+  // [NEW] Military resource for AI attack decisions
+  STARTING_TROOPS: 5,
+  // [NEW] Castle level controls troop income and represents kingdom development
+  STARTING_CASTLE_LEVEL: 1,
 
-  BOARD_SIZE: 16, // 4x4 grid
+  // [CHANGED] 6x6 grid (was 16 / 4x4). Corners updated in game-state.ts to [0, 5, 30, 35].
+  BOARD_SIZE: 36,
 
   // --- Costs ---
   ATTACK_GOLD_COST: 1,
   BUILD_COSTS: { farm: 2, tower: 3, trap: 2 } as const,
+  // [NEW] Upgrade cost tuned to current economy (was 50 in original concept, scaled down
+  // because starting gold is 10 and base income is ~3-5 per round).
+  UPGRADE_COST: 8,
 
   // --- Combat ---
-  ATTACK_DAMAGE: 3,        // damage dealt to a tile's owner on a successful hit
-  TOWER_DEFENSE_BONUS: 2,  // reduces incoming attack damage on that tile
-  TRAP_DAMAGE: 4,          // reflected onto an attacker who hits a trapped tile
-  CONTESTED_CLASH_DAMAGE: 2, // damage each attacker takes when tying on the same tile
+  ATTACK_DAMAGE: 3,
+  TOWER_DEFENSE_BONUS: 2,
+  TRAP_DAMAGE: 4,
+  CONTESTED_CLASH_DAMAGE: 2,
 
   // --- Economy ---
-  GOLD_PER_ROUND: 3,       // base income at the start of each planning phase
-  GOLD_PER_FARM: 1,        // extra income per owned farm
+  GOLD_PER_ROUND: 3,
+  GOLD_PER_FARM: 1,
+  // [NEW] Troop recruitment every round
+  TROOPS_PER_ROUND: 2,
+  // [NEW] Extra troops per castle level (incentive to upgrade)
+  TROOPS_PER_CASTLE_LEVEL: 1,
 } as const
 
 export const CARDS: Record<CardId, CardDef> = {
