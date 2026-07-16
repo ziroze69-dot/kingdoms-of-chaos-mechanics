@@ -1,17 +1,21 @@
 /**
  * ============================================================
- * KINGDOMS OF CHAOS — Simple AI Bot Planner
+ * KINGDOMS OF CHAOS — AI Bot Planner (Strict Priority Tree)
  * ============================================================
- * The bot uses the EXACT same public API as a human player
- * (validateAction -> bufferAction -> commitTurn). It never peeks
- * at other players' buffers — it only reads public board state —
- * so it plays by the same information rules as humans.
+ * [CHANGED] Complete rewrite with a 3-tier strict priority system:
  *
- * Strategy (simple weighted heuristic — replace with minimax /
- * MCTS later without touching the rest of the engine):
- *  - Low HP?          prefer Shield / defensive builds.
- *  - Rich?            prefer building farms (economy snowball).
- *  - Weak enemy tile? prefer attacking it.
+ *   TIER 1 — EMERGENCY (Defend): if HP <= 30% of max, ONLY generate
+ *            defensive actions (towers, traps, shield cards).
+ *
+ *   TIER 2 — TACTICAL ATTACK: if bot.troops > any_enemy.troops * 1.5,
+ *            prioritize attacking viable targets.
+ *
+ *   TIER 3 — ECONOMIC UPGRADE / GATHER: if gold >= UPGRADE_COST,
+ *            upgrade castle; otherwise build farms and opportunistically
+ *            attack weak/neutral tiles.
+ *
+ * The bot still uses the same public API (validateAction -> bufferAction)
+ * and never peeks at hidden buffers.
  */
 
 import { CONFIG } from './config'
@@ -53,52 +57,74 @@ interface Candidate {
   weight: number
 }
 
+/**
+ * [CHANGED] Generates candidates using a strict 3-tier priority system.
+ * Higher tiers completely dominate lower tiers via weight magnitude.
+ */
 function generateCandidates(state: GameState, botId: PlayerId): Candidate[] {
   const bot = state.players[botId]
   const candidates: Candidate[] = []
-  const lowHp = bot.hp <= CONFIG.STARTING_HP / 3
 
-  for (const tile of state.tiles) {
-    // ATTACK enemy or neutral tiles. Prefer enemy-owned tiles,
-    // and prefer tiles owned by the weakest player (finish them).
-    if (tile.owner !== botId) {
-      let weight = tile.owner === null ? 1 : 3
-      if (tile.owner !== null) {
-        const owner = state.players[tile.owner]
-        if (owner.hp <= CONFIG.ATTACK_DAMAGE) weight += 4 // lethal range
-        if (tile.structure === 'tower') weight -= 1 // towers hurt
-      }
-      candidates.push({ action: { type: 'ATTACK', player: botId, targetTileId: tile.id }, weight: Math.max(1, weight) })
-    }
+  // --- STRICT PRIORITY FLAGS ---
+  // [CHANGED] Exact 30% threshold (was STARTING_HP / 3 = 6.66, now precisely 30%)
+  const isEmergency = bot.hp <= CONFIG.STARTING_HP * 0.30
 
-    // BUILD on own/neutral tiles.
-    if (tile.owner === botId || tile.owner === null) {
-      if (tile.structure === 'none') {
-        candidates.push({ action: { type: 'BUILD', player: botId, targetTileId: tile.id, structure: 'farm' }, weight: bot.gold > 6 ? 3 : 1 })
-        // Traps are the mind-game tool: weight them up on owned frontier tiles.
-        candidates.push({ action: { type: 'BUILD', player: botId, targetTileId: tile.id, structure: 'trap' }, weight: tile.owner === botId ? 2 : 1 })
-        candidates.push({ action: { type: 'BUILD', player: botId, targetTileId: tile.id, structure: 'tower' }, weight: lowHp ? 3 : 1 })
+  const enemies = state.players.filter((p) => p.isAlive && p.id !== botId)
+  // [NEW] Tactical advantage: bot troops exceed SOME enemy by 1.5x
+  const hasTroopAdvantage = enemies.some((e) => bot.troops > e.troops * 1.5)
+
+  // ============================================================
+  // TIER 1 — EMERGENCY DEFENSE (hp <= 30%)
+  // ============================================================
+  if (isEmergency) {
+    // Build towers on any own or neutral tile for defense
+    for (const tile of state.tiles) {
+      if (tile.structure !== 'none') continue
+      if (tile.owner === botId || tile.owner === null) {
+        candidates.push({
+          action: { type: 'BUILD', player: botId, targetTileId: tile.id, structure: 'tower' },
+          weight: 10,
+        })
+        // Traps on owned tiles as defensive deterrent
+        if (tile.owner === botId) {
+          candidates.push({
+            action: { type: 'BUILD', player: botId, targetTileId: tile.id, structure: 'trap' },
+            weight: 6,
+          })
+        }
       }
     }
+    // Shield card is highest priority when endangered
+    if (bot.hand.includes('shield')) {
+      candidates.push({
+        action: { type: 'PLAY_CARD', player: botId, cardId: 'shield' },
+        weight: 12,
+      })
+    }
+    // Fallback: farm if nothing else affordable (keep economy alive)
+    for (const tile of state.tiles) {
+      if ((tile.owner === botId || tile.owner === null) && tile.structure === 'none') {
+        candidates.push({
+          action: { type: 'BUILD', player: botId, targetTileId: tile.id, structure: 'farm' },
+          weight: 2,
+        })
+      }
+    }
+    // Low-weight cards as last resort
+    addCardCandidates(candidates, state, botId, 1)
+    return candidates // Strict: emergency blocks lower tiers
   }
 
-  // CARDS
-  for (const cardId of bot.hand) {
-    if (cardId === 'shield') {
-      candidates.push({ action: { type: 'PLAY_CARD', player: botId, cardId }, weight: lowHp ? 6 : 1 })
-    }
-    if (cardId === 'gold_rush') {
-      candidates.push({ action: { type: 'PLAY_CARD', player: botId, cardId }, weight: bot.gold < 4 ? 5 : 2 })
-    }
-    if (cardId === 'fireball') {
-      // Target the healthiest rival (cut down the leader).
-      const rivals = state.players.filter((p) => p.isAlive && p.id !== botId)
-      if (rivals.length > 0) {
-        const target = rivals.reduce((a, b) => (a.hp >= b.hp ? a : b))
-        candidates.push({ action: { type: 'PLAY_CARD', player: botId, cardId, targetPlayerId: target.id }, weight: 3 })
-      }
-    }
-  }
-
-  return candidates
-}
+  // ============================================================
+  // TIER 2 — TACTICAL ATTACK (troops > enemy * 1.5)
+  // ============================================================
+  if (hasTroopAdvantage) {
+    for (const tile of state.tiles) {
+      if (tile.owner === null) {
+        // Neutral tile: easy capture, moderate weight
+        candidates.push({
+          action: { type: 'ATTACK', player: botId, targetTileId: tile.id },
+          weight: 6,
+        })
+      } else if (tile.owner !== botId) {
+        const owner = state
