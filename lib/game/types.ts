@@ -2,9 +2,8 @@
  * ============================================================
  * KINGDOMS OF CHAOS — Core Type Definitions
  * ============================================================
- * Engine-agnostic. No React / DOM / engine imports here, so you
- * can lift this entire `lib/game` folder into Unity (via a TS->C#
- * port), Godot, Phaser, React Native, etc.
+ * [CHANGED] Added troops and castleLevel to Player.
+ * [NEW] Added UPGRADE action type.
  */
 
 // ------------------------------------------------------------
@@ -19,6 +18,10 @@ export interface Player {
   isBot: boolean
   hp: number
   gold: number
+  // [NEW] Military strength used by AI for tactical advantage checks
+  troops: number
+  // [NEW] Castle level increases troop income (economic development)
+  castleLevel: number
   /** Cards currently in hand (card ids). */
   hand: CardId[]
   /** Dead players are skipped during planning and ignored at resolution. */
@@ -64,7 +67,9 @@ export type GameAction =
   | { type: 'ATTACK'; player: PlayerId; targetTileId: number }
   | { type: 'BUILD'; player: PlayerId; targetTileId: number; structure: Exclude<StructureType, 'none'> }
   | { type: 'PLAY_CARD'; player: PlayerId; cardId: CardId; targetPlayerId?: PlayerId }
-  | { type: 'PASS'; player: PlayerId } // explicit "skip this action slot"
+  | { type: 'PASS'; player: PlayerId }
+  // [NEW] Upgrade castle level (economic development action)
+  | { type: 'UPGRADE'; player: PlayerId }
 
 // ------------------------------------------------------------
 // Turn phases
