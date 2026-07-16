@@ -2,10 +2,9 @@
  * ============================================================
  * KINGDOMS OF CHAOS — Game State Factory & Helpers
  * ============================================================
- * State is a plain serializable object. All mutations happen
- * through the TurnManager / ConflictResolver, which treat the
- * state immutably (clone -> modify -> return). That gives you
- * free undo, save/load, and deterministic replays.
+ * [CHANGED] Board size 6x6 (36 tiles), corners [0, 5, 30, 35].
+ * [NEW] Players start with troops and castleLevel.
+ * [NEW] applyIncome now grants troops based on castle level.
  */
 
 import { CONFIG } from './config'
@@ -19,12 +18,16 @@ export function createGameState(names: string[], botFlags: boolean[]): GameState
     isBot: botFlags[i] ?? false,
     hp: CONFIG.STARTING_HP,
     gold: CONFIG.STARTING_GOLD,
+    // [NEW] Initialize military and economic development stats
+    troops: CONFIG.STARTING_TROOPS,
+    castleLevel: CONFIG.STARTING_CASTLE_LEVEL,
     hand: ['fireball', 'shield', 'gold_rush'], // simple starting hand
     isAlive: true,
   }))
 
-  // 4x4 board. Each player starts owning one corner tile.
-  const corners = [0, 3, 12, 15]
+  // [CHANGED] 6x6 board. Each player starts owning one corner tile.
+  // For 6x6 grid, corners are: top-left=0, top-right=5, bottom-left=30, bottom-right=35
+  const corners = [0, 5, 30, 35]
   const tiles: Tile[] = Array.from({ length: CONFIG.BOARD_SIZE }, (_, i) => ({
     id: i,
     owner: corners.includes(i) ? (corners.indexOf(i) as PlayerId) : null,
@@ -57,12 +60,14 @@ export function alivePlayers(state: GameState): Player[] {
   return state.players.filter((p) => p.isAlive)
 }
 
-/** Round income: base gold + farm bonuses. Called at the start of each round. */
+/** Round income: base gold + farm bonuses, and troop recruitment. */
 export function applyIncome(state: GameState): void {
   for (const p of state.players) {
     if (!p.isAlive) continue
     const farms = state.tiles.filter((t) => t.owner === p.id && t.structure === 'farm').length
     p.gold += CONFIG.GOLD_PER_ROUND + farms * CONFIG.GOLD_PER_FARM
+    // [NEW] Troop recruitment scales with castle level (upgrade incentive)
+    p.troops += CONFIG.TROOPS_PER_ROUND + p.castleLevel * CONFIG.TROOPS_PER_CASTLE_LEVEL
   }
 }
 
